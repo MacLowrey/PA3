@@ -16,11 +16,13 @@ enum method{quad,doub};
 
 struct element
 {   int key ;
-    bool deleted;
+    int collisions;
+    bool deleted,placed;
     element()
-    {
+    {   collisions = 0;
         key = -1;
         deleted=false;
+        placed=false;
     }
 };
 
@@ -33,9 +35,8 @@ int h(int key, int sizeM)
     return answer;
 }
 
-int quadHash(int c1, int c2, element e)
-{    int i = e.key;
-     int ans=  c1*i + c2*i^2;
+int quadHash(int c1, int c2, int i)
+{   int ans=  c1*i + c2*i^2;
     return ans;
 }
 int doubleHash(int R, element e)
@@ -56,18 +57,13 @@ void insertQ (vector<element>& arr, element e, int m, int quadCol, int c1, int c
     else
     {   cout<<"COLLISION!"<<endl;
         quadCol++;
-        int q = quadHash(c1, c2, e);
-        int insert = (hvalue+q)%m;
-        if (arr[insert].key == -1)
+        e.collisions++;
+        while(arr[(hvalue+quadHash(c1, c2, e.collisions))%m].key !=-1)
         {
-            arr[insert] = e;
+            e.collisions++;
+            quadCol++;
         }
-        else
-        {
-            cout<<"PROBLEM IN INSERTQ!!!!!"<<endl;
-            return;
-        }
-        
+        arr[(hvalue+quadHash(c1, c2, e.collisions))%m]=e;
     }
     
 }
@@ -77,10 +73,16 @@ void insertD (element * arr, element key, int m, int doubCol, int RValue)
     
 }
 
-void remove(element * arr, element key, int M, method meth)
-{   int hvalue = h(key.key, M);
-    if(arr[hvalue].key != key.key)
-
+void remove(element e,vector<element> arr, int M, method meth)
+{
+    for(int i = 0; i<212;i++)
+    {
+        if(arr[i].key == e.key && arr[i].deleted == false)
+        {
+            arr[i].deleted = true;
+            cout<<arr[i].key<<": HAS BEEN DELETED"<<endl;
+        }
+    }
 }
 
 /////START MAIN BLOCK
@@ -124,12 +126,11 @@ for(int i = 1; i <5;i++)
     
     cout<<M<<" "<<R<<" "<<c1<<" "<<c2<<endl;
 
-    element quadraticHash[211];
-    element doubleHash[211];
-    vector<element> quadVec (211, element());
-    vector<element> doubVec (211, element());
+   // element quadraticHash[211];
+    //element doubleHash[211];
+    vector<element> quadVec (212, element());
+    vector<element> doubVec (212, element());
     
-    cout<<h(R,M)<<endl;
     
     while(file>>controller)
     {   if (!controller.compare("i") || !controller.compare("r"))
@@ -138,15 +139,51 @@ for(int i = 1; i <5;i++)
             element e;
             e.key=j;
             if(!controller.compare("i"))
-            {
-                insertQ(quadVec, e, M, quadCol,c1,c2);
-               // insertD(doubleHash, e, M,doubCol);
+            {   cout<<"INSERT: "<<e.key<<endl;
+                int hvalue = h(e.key, M);
+                /*      QUADRATIC METHOD    */
+                if (quadVec[hvalue].key == -1) {
+                    quadVec[hvalue]=e;
+                }
+                else
+                {
+                    while(!e.placed)
+                    {   e.collisions++;
+                        quadCol++;
+                        if(e.collisions>=20)
+                        {
+                            cout<<e.key<<": has too many collisions using quadratic hashing! "<<e.collisions<<endl;
+                            break;
+                        }
+                        int place = (hvalue+quadHash(c1, c2, e.collisions))%M;
+                        if(quadVec[place].key ==-1)
+                        {
+                            quadVec[place]=e;
+                            e.placed = true;
+                        }
+                    }
+                }
+                /*      DOUBLE HASHING METHOD       */
+                e.collisions = 0;
+                e.placed = false;
+                if (doubVec[hvalue].key == -1) {
+                    doubVec[hvalue] = e;
+                }
+            }
+            if(!controller.compare("r"))
+            {   cout<<"REMOVE: "<<e.key<<endl;
+                remove(e,quadVec,M,strategy);
             }
         }
         controller.clear();
     }
     for (int i=0; i<211; i++) {
-        cout<<i<<": "<<quadVec[i].key<<endl;
-    }
+        if (!quadVec[i].deleted) {
+            cout<<i<<": "<<quadVec[i].key<<endl;
+        }
+        else if(quadVec[i].deleted){
+            cout<<i<<":DELETED "<<quadVec[i].key<<endl;}
+        }
+    cout<<"Quadratic Collisions: "<<quadCol<<endl;
     
 }
