@@ -9,10 +9,11 @@
 #include <iostream>
 #include <sstream>
 #include <fstream>
+#include <cmath>
 #include <vector>
 
 using namespace std;
-enum method{quad,doub};
+enum method{quad,doub,line};
 
 struct element
 {   int key ;
@@ -36,7 +37,7 @@ int h(int key, int sizeM)
 }
 
 int quadHash(int c1, int c2, int i)
-{   int ans=  c1*i + c2*i^2;
+{   int ans=  c1*i + c2*pow(i, 2);
     return ans;
 }
 int doubleHash(int R, element e)
@@ -45,42 +46,19 @@ int doubleHash(int R, element e)
     return answer;
 }
 
-void insertQ (vector<element>& arr, element e, int m, int quadCol, int c1, int c2)
-{
-    int hvalue = h(e.key, m);
-    
-    if (arr[hvalue].key == -1)
-    {
-        arr[hvalue] = e;
-        
-    }
-    else
-    {   cout<<"COLLISION!"<<endl;
-        quadCol++;
-        e.collisions++;
-        while(arr[(hvalue+quadHash(c1, c2, e.collisions))%m].key !=-1)
-        {
-            e.collisions++;
-            quadCol++;
-        }
-        arr[(hvalue+quadHash(c1, c2, e.collisions))%m]=e;
-    }
-    
-}
-void insertD (element * arr, element key, int m, int doubCol, int RValue)
-{
-    int hvalue = h(key.key, m);
-    
-}
 
-void remove(element e,vector<element> arr, int M, method meth)
-{
+void remove(element e,vector<element>& arr, int M, method meth)
+{   /*
+     Assignment Outline did not detail design of remove function.
+     For Real World Use remove function would take hashing method into account to search for variables then delete.
+     With M=211 this method is sufficient.
+     */
     for(int i = 0; i<212;i++)
     {
         if(arr[i].key == e.key && arr[i].deleted == false)
         {
             arr[i].deleted = true;
-            cout<<arr[i].key<<": HAS BEEN DELETED"<<endl;
+          //  cout<<arr[i].key<<": HAS BEEN DELETED"<<endl; DEBUG
         }
     }
 }
@@ -88,11 +66,11 @@ void remove(element e,vector<element> arr, int M, method meth)
 /////START MAIN BLOCK
 
 int main(int argc, const char * argv[])
-{   int quadCol=0, doubCol=0;
+{   int quadCol=0, doubCol=0, probes = 0;
     string controller;
     stringstream str;
     fstream file;
-    method strategy;
+    method strategy=line;
     file.open("data.txt");
     
 int M,R,c1,c2;
@@ -128,8 +106,8 @@ for(int i = 1; i <5;i++)
 
    // element quadraticHash[211];
     //element doubleHash[211];
-    vector<element> quadVec (212, element());
-    vector<element> doubVec (212, element());
+    vector<element> quadVec (M, element());
+    vector<element> doubVec (M, element());
     
     
     while(file>>controller)
@@ -139,51 +117,92 @@ for(int i = 1; i <5;i++)
             element e;
             e.key=j;
             if(!controller.compare("i"))
-            {   cout<<"INSERT: "<<e.key<<endl;
+            {   //cout<<"INSERT: "<<e.key<<endl; DEBUG
                 int hvalue = h(e.key, M);
-                /*      QUADRATIC METHOD    */
-                if (quadVec[hvalue].key == -1) {
-                    quadVec[hvalue]=e;
-                }
-                else
-                {
-                    while(!e.placed)
-                    {   e.collisions++;
-                        quadCol++;
-                        if(e.collisions>=20)
-                        {
-                            cout<<e.key<<": has too many collisions using quadratic hashing! "<<e.collisions<<endl;
-                            break;
+                
+                if (c1 || c2)
+                {   strategy = quad;
+                    
+                //    cout<<"QUADRATIC METHOD"<<endl;
+                        /*      QUADRATIC METHOD    */
+                        if (quadVec[hvalue].key == -1) {
+                            quadVec[hvalue]=e;
+                            probes++;
                         }
-                        int place = (hvalue+quadHash(c1, c2, e.collisions))%M;
-                        if(quadVec[place].key ==-1)
+                        else
                         {
-                            quadVec[place]=e;
-                            e.placed = true;
+                            while(!e.placed)
+                            {   e.collisions++;
+                                probes++;
+                                quadCol++;
+                                if(e.collisions>=211)
+                                {
+                                    cout<<e.key<<": has too many collisions! "<<e.collisions<<endl;
+                                    break;
+                                }
+                                int place = (hvalue+quadHash(c1, c2, e.collisions))%M;
+                                if(quadVec[place].key ==-1)
+                                {
+                                    quadVec[place]=e;
+                                    e.placed = true;
+                                }
+                            }
                         }
-                    }
                 }
-                /*      DOUBLE HASHING METHOD       */
+                
+if (R) {    /*      DOUBLE HASHING METHOD       */
+    strategy = doub;
+    //cout<<"DOUBLE HASH METHOD"<<endl;
                 e.collisions = 0;
                 e.placed = false;
                 if (doubVec[hvalue].key == -1) {
                     doubVec[hvalue] = e;
+                    e.placed=true;
+                    probes++;
+                }
+                else
+                {
+                    while (!e.placed) {
+                        e.collisions++;
+                        probes++;
+                        doubCol++;
+                        if(e.collisions>=211)
+                        {
+                            cout<<e.key<<": has too many collisions! "<<e.collisions<<endl;
+                            break;
+                        }
+                        int place = (e.collisions*doubleHash(R, e)+hvalue)%M;
+                        if (doubVec[place].key==-1) {
+                            doubVec[place]=e;
+                            e.placed =true;
+                        }
+                    }
+                
                 }
             }
+            }
             if(!controller.compare("r"))
-            {   cout<<"REMOVE: "<<e.key<<endl;
-                remove(e,quadVec,M,strategy);
+            {   //cout<<"REMOVE: "<<e.key<<endl; DEBUG
+                if(strategy==quad){
+                    remove(e,quadVec,M,strategy);}
+                if(strategy==doub){
+                    remove(e,doubVec,M,strategy);}
             }
         }
         controller.clear();
     }
-    for (int i=0; i<211; i++) {
-        if (!quadVec[i].deleted) {
-            cout<<i<<": "<<quadVec[i].key<<endl;
+    /* DEBUG PRINT STATEMENT
+    for (int i=0; i<211; i++)
+    {
+        if (!doubVec[i].deleted)
+        {
+            cout<<i<<": "<<doubVec[i].key<<endl;
         }
-        else if(quadVec[i].deleted){
-            cout<<i<<":DELETED "<<quadVec[i].key<<endl;}
+        if(doubVec[i].deleted)
+        {
+            cout<<i<<":DELETED "<<doubVec[i].key<<endl;
         }
-    cout<<"Quadratic Collisions: "<<quadCol<<endl;
+    }*/
+    cout<<"Quadratic Collisions: "<<quadCol<<" Probes: "<<probes<<" Double Collisons: "<<doubCol<<endl;
     
-}
+    }
